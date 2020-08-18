@@ -1,0 +1,91 @@
+version: '3'
+
+networks:
+  template:
+    driver: bridge
+
+volumes:
+  data-db:
+    driver: local
+  data-redis:
+    driver: local
+
+services:
+  proxy:
+    image: nginx:stable-alpine
+    container_name: template_proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./:/var/app
+      - ./.docker/proxy/default.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app
+      - database
+      - redis
+      - mail
+    links:
+      - app
+    networks:
+      - template
+
+  database:
+    image: mysql:5.7
+    container_name: template_database
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: template
+      MYSQL_USER: template
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: secret
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+    networks:
+      - template
+    links:
+      - app
+    volumes:
+      - data-db:/var/lib/mysql
+      - ./.docker/database:/docker-entrypoint-initdb.d
+
+  redis:
+    image: redis:alpine
+    container_name: template_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - template
+    volumes:
+      - data-redis:/data
+
+  mail:
+    image: mailhog/mailhog:latest
+    container_name: template_mail
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - template
+    volumes:
+      - ./.docker/misc/mailhog:/tmp/auth:cached
+
+  app:
+    build:
+      context: .docker/php
+      dockerfile: Dockerfile
+    container_name: template_api
+    working_dir: /var/app
+    restart: unless-stopped
+    volumes:
+      - ./:/var/app
+    ports:
+      - "9000:9000"
+    networks:
+      - template

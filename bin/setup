@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+echo "127.0.0.1  app.local" >> /etc/hosts
+echo ""
+echo "SUCCESS!"
